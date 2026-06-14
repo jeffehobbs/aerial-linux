@@ -1,6 +1,6 @@
 [package]
 name = "aerial-linux"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Apple TV Aerial screensaver for Ubuntu/Linux (GNOME Wayland, idle-display). Phase 1: catalog + cache."
 license = "MIT"

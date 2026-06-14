@@ -4,6 +4,8 @@ A port of the macOS [Aerial](https://github.com/AerialScreensaver/Aerial)
 screensaver to Ubuntu/Linux — playing Apple TV's aerial videos as an
 idle-display screensaver.
 
+![aerial-linux playing an Apple aerial with clock and weather overlays](docs/screenshot.jpg)
+
 **Target:** GNOME / Wayland first · **Language:** Rust · **Scope:** idle-display
 (not a screen locker).
 
