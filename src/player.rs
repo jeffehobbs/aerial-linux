@@ -105,6 +105,13 @@ fn build_args(playlist: &[String], opts: &PlayOptions) -> Vec<String> {
     args.push("--no-osd-bar".into());
     args.push("--cursor-autohide=always".into());
     args.push("--really-quiet".into());
+    // Fill the screen rather than letterboxing — crops the overflow when the
+    // clip's aspect (16:9) doesn't match the display (e.g. 21:9 ultrawides).
+    args.push("--panscan=1.0".into());
+    // Apple's aerials are 240fps masters; on a 60Hz display, sync presentation
+    // to the display refresh so the 240→60 reduction is evenly paced (smooth)
+    // instead of the ragged frame-dropping of the default audio sync.
+    args.push("--video-sync=display-resample".into());
 
     if opts.fullscreen {
         args.push("--fullscreen".into());
