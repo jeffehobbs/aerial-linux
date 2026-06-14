@@ -9,6 +9,7 @@ mod cache;
 mod catalog;
 mod config;
 mod manifest;
+mod player;
 mod selector;
 mod source;
 
@@ -19,6 +20,32 @@ use clap::{Parser, Subcommand};
 use config::Config;
 
 const USER_AGENT: &str = "AppleCoreMedia/1.0.0.20G75 (Apple TV; U; CPU OS 16_0 like Mac OS X; en_us)";
+
+/// Build the HTTP client used for Apple's aerial CDN.
+///
+/// `sylvan.apple.com` presents a leaf certificate issued by Apple's *private*
+/// "Apple Server Authentication CA" and does **not** send the intermediate.
+/// macOS/iOS trust that CA inherently (and cache the intermediate), but the
+/// Mozilla/Linux trust store does not, and rustls does not do AIA fetching — so
+/// the chain cannot be built on Linux, and Apple does not publish the
+/// intermediate for bundling.
+///
+/// We therefore disable chain verification *for this client only*. The trade-off
+/// is acceptable here because every request goes to Apple's CDN for **public,
+/// non-sensitive** video assets — the same content the macOS Aerial app fetches
+/// — and we send no credentials. Any non-Apple host (e.g. the weather API in a
+/// later phase) must use a separate, fully-verifying client.
+///
+/// Hardening path: if Apple's "Apple Server Authentication CA" intermediate can
+/// be obtained, bundle it and switch to `add_root_certificate` + a pinned
+/// issuer check instead of disabling verification.
+fn apple_cdn_client() -> Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .danger_accept_invalid_certs(true)
+        .build()
+        .context("building Apple CDN HTTP client")
+}
 
 #[derive(Parser)]
 #[command(name = "aerial-linux", version, about = "Apple TV Aerial screensaver for Linux (catalog + cache)")]
@@ -54,6 +81,21 @@ enum Command {
         #[arg(long)]
         random: Option<usize>,
     },
+    /// Play aerials fullscreen via mpv (foreground; Esc/q to quit).
+    Play {
+        /// Restrict to a time of day: day | night.
+        #[arg(long)]
+        time: Option<String>,
+        /// Max clips in the playlist (0 = all).
+        #[arg(long, default_value_t = 0)]
+        count: usize,
+        /// Allow streaming clips that aren't cached yet.
+        #[arg(long)]
+        stream: bool,
+        /// Play in a window instead of fullscreen (for testing).
+        #[arg(long)]
+        windowed: bool,
+    },
     /// Print cache/config locations and catalog status.
     Status,
 }
@@ -61,16 +103,19 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let client = reqwest::Client::builder()
-        .user_agent(USER_AGENT)
-        .build()
-        .context("building HTTP client")?;
+    let client = apple_cdn_client()?;
 
     match cli.command {
         Command::Sources => cmd_sources(),
         Command::Fetch { source } => cmd_fetch(&client, source.as_deref()).await,
         Command::List { time, urls } => cmd_list(time.as_deref(), urls),
         Command::Cache { ids, random } => cmd_cache(&client, ids, random).await,
+        Command::Play {
+            time,
+            count,
+            stream,
+            windowed,
+        } => cmd_play(time.as_deref(), count, stream, windowed),
         Command::Status => cmd_status(),
     }
 }
@@ -177,6 +222,34 @@ async fn cmd_cache(
             Err(e) => eprintln!("  {id} → failed: {e:#}"),
         }
     }
+    Ok(())
+}
+
+fn cmd_play(time: Option<&str>, count: usize, stream: bool, windowed: bool) -> Result<()> {
+    let restrict = parse_time(time)?;
+    let cache = Cache::open()?;
+    let catalog = cache.load_catalog()?;
+    let config = Config::load()?;
+    let pref = config.quality.preference();
+
+    let playlist = player::build_playlist(&catalog, &cache, pref, restrict, count, stream);
+    if playlist.is_empty() {
+        anyhow::bail!(
+            "no clips to play — cache some with `aerial-linux cache --random N`, or pass --stream"
+        );
+    }
+    let cached = playlist.iter().filter(|p| !p.starts_with("http")).count();
+    eprintln!(
+        "Playing {} clips ({cached} cached, {} streamed) on {:?}…",
+        playlist.len(),
+        playlist.len() - cached,
+        player::DisplayServer::detect()
+    );
+    let opts = player::PlayOptions {
+        fullscreen: !windowed,
+        ..Default::default()
+    };
+    player::play(&playlist, &opts)?;
     Ok(())
 }
 
