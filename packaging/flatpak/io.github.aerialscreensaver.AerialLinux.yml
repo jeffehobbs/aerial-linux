@@ -1,0 +1,138 @@
+# Flatpak manifest for aerial-linux.
+#
+# Bundles the mpv stack (libplacebo + mpv with Lua) on top of the freedesktop
+# runtime; ffmpeg comes from the org.freedesktop.Platform.ffmpeg-full extension.
+# The Rust app is built with the rust-stable SDK extension.
+#
+# Build:
+#   flatpak-builder --user --install --force-clean build \
+#     packaging/flatpak/io.github.aerialscreensaver.AerialLinux.yml
+#
+# Note: the build steps below share the network (for cargo crates and meson
+# subprojects), which is convenient for local/self-hosted builds. For a Flathub
+# submission you'd instead vendor dependencies (e.g. flatpak-cargo-generator for
+# Rust) and drop the `--share=network` build-args.
+app-id: io.github.aerialscreensaver.AerialLinux
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: aerial-linux
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --share=network                              # stream/cache from Apple CDN, weather
+  - --talk-name=org.gnome.Mutter.IdleMonitor     # idle/active watches
+  - --talk-name=org.mpris.MediaPlayer2.*         # now-playing overlay
+  - --env=AERIAL_OVERLAY_LUA=/app/share/aerial-linux/overlay.lua
+
+# ffmpeg (full codec set) provided at runtime by the extension.
+add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    directory: lib/ffmpeg
+    version: '24.08'
+    add-ld-path: .
+    autodelete: false
+    no-autodownload: false
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /share/man
+  - '*.a'
+  - '*.la'
+
+modules:
+  # Mount point for the ffmpeg-full extension.
+  - name: ffmpeg-extension-point
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/ffmpeg
+
+  - name: libplacebo
+    buildsystem: meson
+    build-options:
+      build-args:
+        - --share=network            # meson fetches the glad subproject
+    config-opts:
+      - -Dvulkan=enabled
+      - -Dopengl=enabled
+      - -Dshaderc=disabled
+      - -Ddemos=false
+      - -Dtests=false
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/libplacebo.git
+        tag: v7.349.0
+
+  - name: luajit
+    # mpv's Lua scripting (our overlay renderer) needs a Lua with a pkgconfig
+    # file; LuaJIT ships luajit.pc. Not in the SDK, so build it.
+    no-autogen: true
+    buildsystem: simple
+    build-commands:
+      - make amalg PREFIX=/app
+      - make install PREFIX=/app
+    cleanup:
+      - /bin
+      - /include
+      - /lib/pkgconfig
+    sources:
+      - type: git
+        url: https://github.com/LuaJIT/LuaJIT.git
+        branch: v2.1
+
+  - name: libass
+    cleanup:
+      - '*.la'
+    config-opts:
+      - --disable-static
+    sources:
+      - type: git
+        url: https://github.com/libass/libass.git
+        tag: '0.17.3'
+
+  - name: mpv
+    buildsystem: meson
+    build-options:
+      build-args:
+        - --share=network
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=true
+      - -Dlua=enabled                # required: we render overlays via a Lua script
+      - -Dvulkan=enabled
+    sources:
+      - type: git
+        url: https://github.com/mpv-player/mpv.git
+        tag: v0.39.0
+
+  - name: aerial-linux
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/aerial-linux/cargo
+      build-args:
+        - --share=network            # cargo fetches crates
+    build-commands:
+      - cargo --offline build --release || cargo build --release
+      - install -Dm755 target/release/aerial-linux /app/bin/aerial-linux
+      - install -Dm644 assets/overlay.lua /app/share/aerial-linux/overlay.lua
+      - install -Dm644 packaging/flatpak/io.github.aerialscreensaver.AerialLinux.desktop
+        /app/share/applications/io.github.aerialscreensaver.AerialLinux.desktop
+      - install -Dm644 packaging/flatpak/io.github.aerialscreensaver.AerialLinux.metainfo.xml
+        /app/share/metainfo/io.github.aerialscreensaver.AerialLinux.metainfo.xml
+      - install -Dm644 packaging/flatpak/io.github.aerialscreensaver.AerialLinux.svg
+        /app/share/icons/hicolor/scalable/apps/io.github.aerialscreensaver.AerialLinux.svg
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - target
+          - .git
+          - build

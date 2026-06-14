@@ -1,0 +1,14 @@
+[Unit]
+Description=aerial-linux — Apple TV aerial screensaver (Flatpak)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/systemctl --user import-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP
+ExecStart=/usr/bin/flatpak run io.github.aerialscreensaver.AerialLinux daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

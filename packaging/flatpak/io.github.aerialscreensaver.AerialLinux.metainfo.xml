@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.aerialscreensaver.AerialLinux</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Aerial Screensaver</name>
+  <summary>Apple TV aerial videos as a screensaver</summary>
+  <description>
+    <p>
+      Plays Apple TV's aerial videos as a screensaver on GNOME/Wayland. A
+      background daemon watches the session idle time and, after a configurable
+      timeout, plays the aerials fullscreen — stopping the moment you touch the
+      keyboard or mouse. Optional clock, weather, and now-playing overlays.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.aerialscreensaver.AerialLinux.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-06-14"/>
+  </releases>
+</component>

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Aerial Screensaver
+Comment=Apple TV aerial videos as a screensaver
+Icon=io.github.aerialscreensaver.AerialLinux
+Exec=aerial-linux daemon
+Terminal=false
+Categories=Utility;
+Keywords=screensaver;aerial;wallpaper;

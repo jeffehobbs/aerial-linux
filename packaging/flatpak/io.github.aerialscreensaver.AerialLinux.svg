@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1a3f"/>
+      <stop offset="0.55" stop-color="#1f4e8c"/>
+      <stop offset="1" stop-color="#e8915b"/>
+    </linearGradient>
+    <clipPath id="r">
+      <rect x="8" y="8" width="112" height="112" rx="24"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect x="8" y="8" width="112" height="112" fill="url(#sky)"/>
+    <!-- sun -->
+    <circle cx="64" cy="74" r="13" fill="#ffd9a0" opacity="0.95"/>
+    <!-- horizon water -->
+    <rect x="8" y="86" width="112" height="34" fill="#06122b" opacity="0.85"/>
+    <!-- distant ridge -->
+    <path d="M8 88 L34 70 L52 82 L74 64 L96 80 L120 66 L120 120 L8 120 Z" fill="#0b1d40"/>
+    <path d="M8 96 L30 84 L56 94 L82 80 L104 92 L120 84 L120 120 L8 120 Z" fill="#13284f"/>
+  </g>
+  <rect x="8" y="8" width="112" height="112" rx="24" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="2"/>
+</svg>
