@@ -38,25 +38,38 @@ local function set(ov, data)
     ov:update()
 end
 
+-- Shared text treatment: white fill, no hard outline — contrast comes from a
+-- soft, blurred drop shadow (a thin blurred halo keeps it legible over bright
+-- skies too). `\an<n>` (corner) and `\fs<n>` (size) are prepended per element.
+local function style(font)
+    return "\\fn" .. font
+        .. "\\1c&HFFFFFF&"            -- white text
+        .. "\\bord1\\3c&H000000&"     -- thin dark edge, softened by blur below
+        .. "\\shad2\\4c&H000000&"     -- offset drop shadow
+        .. "\\blur4"                  -- blur both → soft, no hard line
+end
+
 local function draw()
     local st = read_state()
+    local font = (st.font and st.font ~= "") and st.font or "Inter"
+    local s = style(font)
 
     if st.show_clock ~= false then
         set(clock_ov, string.format(
-            "{\\an9\\fs64\\bord3\\shad1\\1c&HFFFFFF&}%s\\N{\\fs28}%s",
-            os.date("%H:%M"), os.date("%a %d %b")))
+            "{\\an9%s\\b1\\fs64}%s\\N{\\fs28\\b0}%s",
+            s, os.date("%H:%M"), os.date("%a %d %b")))
     else
         set(clock_ov, "")
     end
 
     if st.weather and st.weather ~= "" then
-        set(weather_ov, "{\\an7\\fs34\\bord2\\shad1}" .. esc(st.weather))
+        set(weather_ov, "{\\an7" .. s .. "\\fs34}" .. esc(st.weather))
     else
         set(weather_ov, "")
     end
 
     if st.now_playing and st.now_playing ~= "" then
-        set(np_ov, "{\\an1\\fs30\\bord2\\shad1}" .. esc(st.now_playing))
+        set(np_ov, "{\\an1" .. s .. "\\fs30}" .. esc(st.now_playing))
     else
         set(np_ov, "")
     end

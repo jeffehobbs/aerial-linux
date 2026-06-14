@@ -24,6 +24,9 @@ pub struct Config {
     pub show_clock: bool,
     /// Show a "now playing" overlay sourced from MPRIS.
     pub show_now_playing: bool,
+    /// Font family for overlay text (must be available to libass —
+    /// system-installed for the .deb, bundled in the Flatpak).
+    pub overlay_font: String,
     /// OpenWeather API key. Weather overlay is shown only when this and a
     /// location are set.
     pub weather_api_key: Option<String>,
@@ -42,6 +45,7 @@ impl Default for Config {
             allow_stream: true,
             show_clock: true,
             show_now_playing: true,
+            overlay_font: "Inter".to_string(),
             weather_api_key: None,
             weather_lat: None,
             weather_lon: None,

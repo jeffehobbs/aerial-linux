@@ -42,7 +42,7 @@ priority = "optional"
 # runtime player we drive. mesa-vulkan-drivers gives the Wayland Vulkan path on
 # Intel/AMD (NVIDIA provides its own via the standard driver packages).
 depends = "$auto, mpv"
-recommends = "mesa-vulkan-drivers"
+recommends = "mesa-vulkan-drivers, fonts-inter"
 extended-description = """\
 Plays Apple TV's aerial videos as a screensaver on GNOME/Wayland. A background \
 daemon watches the session idle time (org.gnome.Mutter.IdleMonitor) and, after \

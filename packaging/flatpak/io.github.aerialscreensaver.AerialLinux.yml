@@ -129,6 +129,9 @@ modules:
         /app/share/metainfo/io.github.aerialscreensaver.AerialLinux.metainfo.xml
       - install -Dm644 packaging/flatpak/io.github.aerialscreensaver.AerialLinux.svg
         /app/share/icons/hicolor/scalable/apps/io.github.aerialscreensaver.AerialLinux.svg
+      # Bundle the Inter font (default overlay font) so it's available to libass
+      # inside the sandbox; the freedesktop runtime's fontconfig scans /app/share/fonts.
+      - install -Dm644 Inter.ttf /app/share/fonts/Inter.ttf
     sources:
       - type: dir
         path: ../..
@@ -136,3 +139,7 @@ modules:
           - target
           - .git
           - build
+      - type: file
+        url: https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz,wght%5D.ttf
+        sha256: 29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031
+        dest-filename: Inter.ttf

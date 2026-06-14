@@ -18,6 +18,7 @@ use tokio::task::JoinHandle;
 #[derive(Debug, Default, Serialize)]
 pub struct OverlayState {
     pub show_clock: bool,
+    pub font: String,
     pub weather: Option<String>,
     pub now_playing: Option<String>,
 }
@@ -41,6 +42,7 @@ pub fn prepare(config: &Config) -> Option<OverlaySetup> {
         &state_file,
         &OverlayState {
             show_clock: config.show_clock,
+            font: config.overlay_font.clone(),
             ..Default::default()
         },
     );
@@ -125,6 +127,7 @@ async fn refresh_loop(config: Config, path: PathBuf) {
             &path,
             &OverlayState {
                 show_clock: config.show_clock,
+                font: config.overlay_font.clone(),
                 weather: weather.clone(),
                 now_playing,
             },

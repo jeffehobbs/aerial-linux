@@ -25,6 +25,10 @@ show_clock = true
 # "Now playing" (bottom-left), sourced from any playing MPRIS media player.
 show_now_playing = true
 
+# Font family for overlay text. Must be available to libass: the .deb pulls in
+# fonts-inter; the Flatpak bundles Inter. Change to any installed family.
+overlay_font = "Inter"
+
 # Weather (top-left). Shown only when api key + latitude + longitude are all
 # set. Get a free key at https://openweathermap.org/api
 # weather_api_key = "your-openweathermap-key"
