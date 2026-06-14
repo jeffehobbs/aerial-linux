@@ -33,7 +33,7 @@ and now-playing drawn over the video.
 
 A clock (top-right), weather (top-left), and "now playing" (bottom-left) are
 drawn over the video by an mpv Lua/ASS script (`assets/overlay.lua`). The clock
-is computed in Lua; weather (OpenWeather) and now-playing (MPRIS over D-Bus) are
+is computed in Lua; weather (Open-Meteo, no key) and now-playing (MPRIS over D-Bus) are
 fetched by the Rust side and written to a JSON state file the script reads. All
 are individually toggleable; weather requires an API key + location in config.
 
@@ -120,11 +120,11 @@ match_time_of_day = false
 # Overlays
 show_clock = true
 show_now_playing = true   # from MPRIS (any playing media player)
-# weather (top-left) — shown only when all three are set:
-weather_api_key = "…"     # openweathermap.org key
+overlay_font = "Inter"
+# weather (top-left) via Open-Meteo (free, no API key) — shown when lat+lon set:
 weather_lat = 45.52
 weather_lon = -122.68
-weather_units = "metric"  # metric | imperial | standard
+weather_units = "metric"  # metric (°C) | imperial (°F)
 ```
 
 The overlay Lua script is found via `$AERIAL_OVERLAY_LUA`, next to the binary,
@@ -157,7 +157,7 @@ src/
   cache.rs      XDG cache: catalog.json + streamed, md5-verified video downloads
   player.rs     fullscreen playback by driving the mpv binary (Wayland/Vulkan)
   daemon.rs     GNOME idle daemon (org.gnome.Mutter.IdleMonitor via zbus)
-  overlay.rs    weather (OpenWeather) + now-playing (MPRIS) → JSON state file
+  overlay.rs    weather (Open-Meteo) + now-playing (MPRIS) → JSON state file
   selector.rs   time-of-day filtering + random pick
 assets/
   overlay.lua   mpv Lua/ASS overlay renderer (clock/weather/now-playing)

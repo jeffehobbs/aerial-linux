@@ -29,9 +29,8 @@ show_now_playing = true
 # fonts-inter; the Flatpak bundles Inter. Change to any installed family.
 overlay_font = "Inter"
 
-# Weather (top-left). Shown only when api key + latitude + longitude are all
-# set. Get a free key at https://openweathermap.org/api
-# weather_api_key = "your-openweathermap-key"
+# Weather (top-left), via Open-Meteo (https://open-meteo.com) — free, no API
+# key. Shown when both latitude and longitude are set.
 # weather_lat = 45.52
 # weather_lon = -122.68
-weather_units = "metric"   # "metric" (°C) | "imperial" (°F) | "standard" (K)
+weather_units = "metric"   # "metric" (°C) | "imperial" (°F)

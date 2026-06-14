@@ -27,12 +27,11 @@ pub struct Config {
     /// Font family for overlay text (must be available to libass —
     /// system-installed for the .deb, bundled in the Flatpak).
     pub overlay_font: String,
-    /// OpenWeather API key. Weather overlay is shown only when this and a
-    /// location are set.
-    pub weather_api_key: Option<String>,
+    /// Weather location. The weather overlay (via Open-Meteo, no API key needed)
+    /// is shown when both latitude and longitude are set.
     pub weather_lat: Option<f64>,
     pub weather_lon: Option<f64>,
-    /// OpenWeather units: "metric" | "imperial" | "standard".
+    /// Temperature units: "metric" (°C) or "imperial" (°F).
     pub weather_units: String,
 }
 
@@ -46,7 +45,6 @@ impl Default for Config {
             show_clock: true,
             show_now_playing: true,
             overlay_font: "Inter".to_string(),
-            weather_api_key: None,
             weather_lat: None,
             weather_lon: None,
             weather_units: "metric".to_string(),
@@ -55,9 +53,9 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Whether the weather overlay is fully configured.
+    /// Whether the weather overlay is configured (just needs a location).
     pub fn weather_enabled(&self) -> bool {
-        self.weather_api_key.is_some() && self.weather_lat.is_some() && self.weather_lon.is_some()
+        self.weather_lat.is_some() && self.weather_lon.is_some()
     }
 
     /// Whether any overlay should be shown at all.

@@ -2,7 +2,7 @@
 //! mpv Lua script (`assets/overlay.lua`) reads and renders.
 //!
 //! The clock is rendered entirely in Lua (no Rust needed). Anything requiring
-//! the network or D-Bus lives here: weather from OpenWeather, and the current
+//! the network or D-Bus lives here: weather from Open-Meteo, and the current
 //! track from any MPRIS media player on the session bus. A background task
 //! refreshes the file while the player runs.
 
@@ -137,59 +137,73 @@ async fn refresh_loop(config: Config, path: PathBuf) {
     }
 }
 
-// ---- weather ---------------------------------------------------------------
+// ---- weather (Open-Meteo, no API key) --------------------------------------
 
 #[derive(serde::Deserialize)]
-struct OwResponse {
-    weather: Vec<OwWeather>,
-    main: OwMain,
-    name: String,
+struct OmResponse {
+    current: OmCurrent,
+    current_units: OmUnits,
 }
 #[derive(serde::Deserialize)]
-struct OwWeather {
-    description: String,
+struct OmCurrent {
+    temperature_2m: f64,
+    weather_code: i64,
 }
 #[derive(serde::Deserialize)]
-struct OwMain {
-    temp: f64,
+struct OmUnits {
+    /// Already a display string with the degree symbol, e.g. "°F".
+    temperature_2m: String,
 }
 
 async fn fetch_weather(client: &reqwest::Client, config: &Config) -> Option<String> {
-    let (key, lat, lon) = (
-        config.weather_api_key.as_ref()?,
-        config.weather_lat?,
-        config.weather_lon?,
-    );
+    let (lat, lon) = (config.weather_lat?, config.weather_lon?);
+    // Open-Meteo (https://open-meteo.com) — free, no key required.
+    let temp_unit = if config.weather_units == "imperial" {
+        "fahrenheit"
+    } else {
+        "celsius"
+    };
     let url = format!(
-        "https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&units={}&appid={key}",
-        config.weather_units
+        "https://api.open-meteo.com/v1/forecast\
+         ?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&temperature_unit={temp_unit}"
     );
     let resp = client.get(&url).send().await.ok()?.error_for_status().ok()?;
-    let data: OwResponse = resp.json().await.ok()?;
-    let unit = match config.weather_units.as_str() {
-        "imperial" => "°F",
-        "standard" => "K",
-        _ => "°C",
-    };
-    let desc = data
-        .weather
-        .first()
-        .map(|w| capitalize(&w.description))
-        .unwrap_or_default();
+    let data: OmResponse = resp.json().await.ok()?;
     Some(format!(
-        "{}{}  {}  ·  {}",
-        data.main.temp.round() as i64,
-        unit,
-        desc,
-        data.name
+        "{}{}  {}",
+        data.current.temperature_2m.round() as i64,
+        data.current_units.temperature_2m,
+        wmo_description(data.current.weather_code),
     ))
 }
 
-fn capitalize(s: &str) -> String {
-    let mut c = s.chars();
-    match c.next() {
-        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-        None => String::new(),
+/// Map a WMO weather-interpretation code (Open-Meteo `weather_code`) to text.
+fn wmo_description(code: i64) -> &'static str {
+    match code {
+        0 => "Clear sky",
+        1 => "Mainly clear",
+        2 => "Partly cloudy",
+        3 => "Overcast",
+        45 | 48 => "Fog",
+        51 => "Light drizzle",
+        53 => "Drizzle",
+        55 => "Heavy drizzle",
+        56 | 57 => "Freezing drizzle",
+        61 => "Light rain",
+        63 => "Rain",
+        65 => "Heavy rain",
+        66 | 67 => "Freezing rain",
+        71 => "Light snow",
+        73 => "Snow",
+        75 => "Heavy snow",
+        77 => "Snow grains",
+        80 => "Light showers",
+        81 => "Showers",
+        82 => "Violent showers",
+        85 | 86 => "Snow showers",
+        95 => "Thunderstorm",
+        96 | 99 => "Thunderstorm with hail",
+        _ => "—",
     }
 }
 
