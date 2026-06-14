@@ -43,10 +43,10 @@ end
 -- skies too). `\an<n>` (corner) and `\fs<n>` (size) are prepended per element.
 local function style(font)
     return "\\fn" .. font
-        .. "\\1c&HFFFFFF&"            -- white text
-        .. "\\bord1\\3c&H000000&"     -- thin dark edge, softened by blur below
-        .. "\\shad2\\4c&H000000&"     -- offset drop shadow
-        .. "\\blur4"                  -- blur both → soft, no hard line
+        .. "\\1c&HFFFFFF&"                       -- white text
+        .. "\\bord1\\3c&H000000&\\3a&H80&"       -- faint, half-transparent halo
+        .. "\\shad1\\4c&H000000&\\4a&HA0&"       -- light, mostly-transparent shadow
+        .. "\\blur5"                             -- soft edges
 end
 
 local function draw()
