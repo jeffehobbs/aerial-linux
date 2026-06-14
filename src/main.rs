@@ -10,6 +10,7 @@ mod catalog;
 mod config;
 mod daemon;
 mod manifest;
+mod overlay;
 mod player;
 mod selector;
 mod source;
@@ -122,7 +123,7 @@ async fn main() -> Result<()> {
             count,
             stream,
             windowed,
-        } => cmd_play(time.as_deref(), count, stream, windowed),
+        } => cmd_play(time.as_deref(), count, stream, windowed).await,
         Command::Daemon { timeout } => cmd_daemon(timeout).await,
         Command::Status => cmd_status(),
     }
@@ -233,7 +234,7 @@ async fn cmd_cache(
     Ok(())
 }
 
-fn cmd_play(time: Option<&str>, count: usize, stream: bool, windowed: bool) -> Result<()> {
+async fn cmd_play(time: Option<&str>, count: usize, stream: bool, windowed: bool) -> Result<()> {
     let restrict = parse_time(time)?;
     let cache = Cache::open()?;
     let catalog = cache.load_catalog()?;
@@ -253,11 +254,18 @@ fn cmd_play(time: Option<&str>, count: usize, stream: bool, windowed: bool) -> R
         playlist.len() - cached,
         player::DisplayServer::detect()
     );
+    let overlay = overlay::prepare(&config);
+    let refresher = overlay.as_ref().map(|o| o.spawn_refresher());
     let opts = player::PlayOptions {
         fullscreen: !windowed,
+        script: overlay.as_ref().map(|o| o.script.clone()),
+        overlay_file: overlay.as_ref().map(|o| o.state_file.clone()),
         ..Default::default()
     };
-    player::play(&playlist, &opts)?;
+    player::play_async(&playlist, &opts).await?;
+    if let Some(r) = refresher {
+        r.abort();
+    }
     Ok(())
 }
 
@@ -279,7 +287,8 @@ async fn cmd_daemon(timeout_override: Option<u64>) -> Result<()> {
         player::build_playlist(&catalog, &cache, pref, restrict, 0, config.allow_stream)
     };
 
-    daemon::run(timeout, make_playlist).await
+    let overlay = overlay::prepare(&config);
+    daemon::run(timeout, overlay, make_playlist).await
 }
 
 fn cmd_status() -> Result<()> {

@@ -14,21 +14,28 @@ manifest URLs, the `entries.json` schema, and the video-selection heuristics —
 lifted from the MIT-licensed upstream. Apple's video content itself is streamed
 from Apple's CDN exactly as Aerial does; nothing is redistributed.
 
-## Status — Phase 3 (GNOME idle daemon)
+## Status — Phase 4 (overlays)
 
 | Phase | Component | State |
 |-------|-----------|-------|
 | 0 | Recon (manifest schema, URLs, license) | ✅ done |
 | 1 | Catalog + cache layer | ✅ done |
 | 2 | mpv fullscreen player (Wayland) | ✅ done |
-| 3 | **GNOME idle daemon (`org.gnome.Mutter.IdleMonitor`)** | ✅ this milestone |
-| 4 | Overlays (clock/weather via mpv Lua; MPRIS now-playing) | ⬜ next |
-| 5 | Packaging (Flatpak / .deb) | ⬜ |
+| 3 | GNOME idle daemon (`org.gnome.Mutter.IdleMonitor`) | ✅ done |
+| 4 | **Overlays (clock + weather + MPRIS now-playing)** | ✅ this milestone |
+| 5 | Packaging (Flatpak / .deb) | ⬜ next |
 
-Validated end-to-end on GNOME/Wayland + NVIDIA: the daemon starts playback on
-idle, stops on activity, re-fires each idle cycle, and shuts down cleanly —
-fullscreen, hardware-decoded via the Vulkan pipeline (`--vo=gpu-next
---gpu-api=vulkan --gpu-context=waylandvk`).
+Validated end-to-end on GNOME/Wayland + NVIDIA: aerials play fullscreen
+(Vulkan, hardware-decoded) on idle and stop on activity, with a clock, weather,
+and now-playing drawn over the video.
+
+### Overlays
+
+A clock (top-right), weather (top-left), and "now playing" (bottom-left) are
+drawn over the video by an mpv Lua/ASS script (`assets/overlay.lua`). The clock
+is computed in Lua; weather (OpenWeather) and now-playing (MPRIS over D-Bus) are
+fetched by the Rust side and written to a JSON state file the script reads. All
+are individually toggleable; weather requires an API key + location in config.
 
 ## Building
 
@@ -60,6 +67,7 @@ aerial-linux status               # show cache/config paths + catalog size
 
 ```sh
 install -Dm755 target/release/aerial-linux ~/.local/bin/aerial-linux
+install -Dm644 assets/overlay.lua ~/.local/share/aerial-linux/overlay.lua
 install -Dm644 packaging/aerial-linux.service ~/.config/systemd/user/aerial-linux.service
 aerial-linux fetch                # populate the catalog
 aerial-linux cache --random 20    # optionally pre-cache clips (else it streams)
@@ -76,7 +84,20 @@ quality = "best"          # or "compatible"
 idle_timeout_secs = 300
 allow_stream = true       # play not-yet-cached clips by streaming
 match_time_of_day = false
+
+# Overlays
+show_clock = true
+show_now_playing = true   # from MPRIS (any playing media player)
+# weather (top-left) — shown only when all three are set:
+weather_api_key = "…"     # openweathermap.org key
+weather_lat = 45.52
+weather_lon = -122.68
+weather_units = "metric"  # metric | imperial | standard
 ```
+
+The overlay Lua script is found via `$AERIAL_OVERLAY_LUA`, next to the binary,
+`~/.local/share/aerial-linux/overlay.lua`, or `/usr/share/aerial-linux/`. When
+installing, copy `assets/overlay.lua` to one of those.
 
 `play` drives the `mpv` binary (see `src/player.rs` for why a subprocess rather
 than libmpv FFI). On Wayland it uses the Vulkan video pipeline; override mpv
@@ -104,7 +125,10 @@ src/
   cache.rs      XDG cache: catalog.json + streamed, md5-verified video downloads
   player.rs     fullscreen playback by driving the mpv binary (Wayland/Vulkan)
   daemon.rs     GNOME idle daemon (org.gnome.Mutter.IdleMonitor via zbus)
+  overlay.rs    weather (OpenWeather) + now-playing (MPRIS) → JSON state file
   selector.rs   time-of-day filtering + random pick
+assets/
+  overlay.lua   mpv Lua/ASS overlay renderer (clock/weather/now-playing)
   config.rs     ~/.config/aerial-linux/config.toml (quality, time-of-day)
   main.rs       CLI
 ```

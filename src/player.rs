@@ -51,6 +51,11 @@ pub struct PlayOptions {
     pub allow_input_quit: bool,
     /// If set, expose an mpv JSON IPC socket here (used by the daemon/overlays).
     pub ipc_socket: Option<PathBuf>,
+    /// If set, load this mpv Lua script (the overlay renderer).
+    pub script: Option<PathBuf>,
+    /// If set, passed to mpv's environment as `AERIAL_OVERLAY_FILE` for the
+    /// overlay script to read.
+    pub overlay_file: Option<PathBuf>,
     /// Extra raw mpv args, appended last (also seeded from `$AERIAL_MPV_ARGS`).
     pub extra_args: Vec<String>,
 }
@@ -63,6 +68,8 @@ impl Default for PlayOptions {
             shuffle: true,
             allow_input_quit: true,
             ipc_socket: None,
+            script: None,
+            overlay_file: None,
             extra_args: Vec::new(),
         }
     }
@@ -115,6 +122,9 @@ fn build_args(playlist: &[String], opts: &PlayOptions) -> Vec<String> {
     }
     if let Some(sock) = &opts.ipc_socket {
         args.push(format!("--input-ipc-server={}", sock.display()));
+    }
+    if let Some(script) = &opts.script {
+        args.push(format!("--script={}", script.display()));
     }
 
     if let Ok(env_args) = std::env::var("AERIAL_MPV_ARGS") {
@@ -172,16 +182,23 @@ pub fn spawn(playlist: &[String], opts: &PlayOptions) -> Result<Child> {
         anyhow::bail!("nothing to play (empty playlist)");
     }
     let args = build_args(playlist, opts);
-    Command::new("mpv")
-        .args(&args)
-        .stdin(Stdio::null())
-        .spawn()
+    let mut cmd = Command::new("mpv");
+    cmd.args(&args).stdin(Stdio::null());
+    if let Some(file) = &opts.overlay_file {
+        cmd.env("AERIAL_OVERLAY_FILE", file);
+    }
+    cmd.spawn()
         .context("launching mpv (is it installed and on PATH?)")
 }
 
-/// Spawn mpv and block until it exits. Returns whether it exited successfully.
-pub fn play(playlist: &[String], opts: &PlayOptions) -> Result<bool> {
+/// Spawn mpv and await its exit by polling, so the async runtime stays free to
+/// run a concurrent overlay refresher. Returns whether it exited successfully.
+pub async fn play_async(playlist: &[String], opts: &PlayOptions) -> Result<bool> {
     let mut child = spawn(playlist, opts)?;
-    let status = child.wait().context("waiting for mpv")?;
-    Ok(status.success())
+    loop {
+        if let Some(status) = child.try_wait().context("polling mpv")? {
+            return Ok(status.success());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
 }

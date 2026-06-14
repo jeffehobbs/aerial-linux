@@ -14,10 +14,12 @@
 //! active watch — not by the mpv window — which is what lets a plain fullscreen
 //! `xdg-toplevel` work on Mutter (no layer-shell / always-on-top needed).
 
+use crate::overlay::OverlaySetup;
 use crate::player::{self, PlayOptions};
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use std::process::Child;
+use tokio::task::JoinHandle;
 
 /// Mutter's idle-monitor interface (the "Core" seat-wide monitor).
 #[zbus::proxy(
@@ -44,6 +46,7 @@ trait IdleMonitor {
 /// picked up without restarting the daemon.
 pub async fn run(
     idle_timeout_secs: u64,
+    overlay: Option<OverlaySetup>,
     make_playlist: impl Fn() -> Vec<String>,
 ) -> Result<()> {
     let conn = zbus::Connection::session()
@@ -66,6 +69,7 @@ pub async fn run(
 
     let mut active_id: Option<u32> = None;
     let mut child: Option<Child> = None;
+    let mut refresher: Option<JoinHandle<()>> = None;
 
     // `AddIdleWatch` only fires on an *upward* crossing of the threshold, so if
     // the session is already idle past it when we start (e.g. the service was
@@ -73,7 +77,15 @@ pub async fn run(
     // activity→idle cycle. Handle that by checking the current idle time once.
     if monitor.get_idletime().await.unwrap_or(0) >= idle_timeout_secs * 1000 {
         eprintln!("aerial-linux daemon: already idle at startup → playing");
-        start_player(&monitor, &make_playlist, &mut child, &mut active_id).await;
+        start_player(
+            &monitor,
+            overlay.as_ref(),
+            &make_playlist,
+            &mut child,
+            &mut active_id,
+            &mut refresher,
+        )
+        .await;
     }
 
     let shutdown = shutdown_signal();
@@ -83,7 +95,7 @@ pub async fn run(
         tokio::select! {
             _ = &mut shutdown => {
                 eprintln!("aerial-linux daemon: shutting down");
-                stop_player(&mut child);
+                stop_player(&mut child, &mut refresher);
                 let _ = monitor.remove_watch(idle_id).await;
                 if let Some(id) = active_id {
                     let _ = monitor.remove_watch(id).await;
@@ -96,28 +108,39 @@ pub async fn run(
 
                 if id == idle_id {
                     // Went idle → start the screensaver and arm the active watch.
-                    start_player(&monitor, &make_playlist, &mut child, &mut active_id).await;
+                    start_player(
+                        &monitor,
+                        overlay.as_ref(),
+                        &make_playlist,
+                        &mut child,
+                        &mut active_id,
+                        &mut refresher,
+                    )
+                    .await;
                 } else if Some(id) == active_id {
                     // User active → stop the screensaver. (Watch auto-removed.)
                     eprintln!("aerial-linux daemon: active → stopping player");
-                    stop_player(&mut child);
+                    stop_player(&mut child, &mut refresher);
                     active_id = None;
                 }
             }
         }
     }
 
-    stop_player(&mut child);
+    stop_player(&mut child, &mut refresher);
     Ok(())
 }
 
 /// Start the player (if not already running) and arm the user-active watch so
 /// we get told when to stop. No-op if a player is already running.
+#[allow(clippy::too_many_arguments)]
 async fn start_player(
     monitor: &IdleMonitorProxy<'_>,
+    overlay: Option<&OverlaySetup>,
     make_playlist: &impl Fn() -> Vec<String>,
     child: &mut Option<Child>,
     active_id: &mut Option<u32>,
+    refresher: &mut Option<JoinHandle<()>>,
 ) {
     if child.is_some() {
         return;
@@ -128,9 +151,12 @@ async fn start_player(
         return;
     }
     eprintln!("aerial-linux daemon: idle → playing {} clips", playlist.len());
-    match player::spawn(&playlist, &daemon_play_opts()) {
+    match player::spawn(&playlist, &daemon_play_opts(overlay)) {
         Ok(c) => {
             *child = Some(c);
+            if let Some(o) = overlay {
+                *refresher = Some(o.spawn_refresher());
+            }
             match monitor.add_user_active_watch().await {
                 Ok(id) => *active_id = Some(id),
                 Err(e) => eprintln!("aerial-linux daemon: failed to arm active watch: {e:#}"),
@@ -142,21 +168,26 @@ async fn start_player(
 
 /// Player options for daemon-managed playback: fullscreen, looping, and
 /// input-inert (the daemon owns the lifecycle, not keypresses in the window).
-fn daemon_play_opts() -> PlayOptions {
+fn daemon_play_opts(overlay: Option<&OverlaySetup>) -> PlayOptions {
     PlayOptions {
         fullscreen: true,
         loop_playlist: true,
         shuffle: true,
         allow_input_quit: false,
         ipc_socket: None,
+        script: overlay.map(|o| o.script.clone()),
+        overlay_file: overlay.map(|o| o.state_file.clone()),
         extra_args: Vec::new(),
     }
 }
 
-fn stop_player(child: &mut Option<Child>) {
+fn stop_player(child: &mut Option<Child>, refresher: &mut Option<JoinHandle<()>>) {
     if let Some(mut c) = child.take() {
         let _ = c.kill();
         let _ = c.wait();
+    }
+    if let Some(r) = refresher.take() {
+        r.abort();
     }
 }
 
