@@ -15,6 +15,10 @@ pub struct Config {
     pub quality: Quality,
     /// Restrict playback to match the wall-clock time of day where possible.
     pub match_time_of_day: bool,
+    /// Seconds of inactivity before the daemon starts the screensaver.
+    pub idle_timeout_secs: u64,
+    /// Whether the daemon may stream clips that aren't cached yet.
+    pub allow_stream: bool,
 }
 
 impl Default for Config {
@@ -22,6 +26,8 @@ impl Default for Config {
         Config {
             quality: Quality::Best,
             match_time_of_day: false,
+            idle_timeout_secs: 300,
+            allow_stream: true,
         }
     }
 }

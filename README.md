@@ -14,20 +14,21 @@ manifest URLs, the `entries.json` schema, and the video-selection heuristics —
 lifted from the MIT-licensed upstream. Apple's video content itself is streamed
 from Apple's CDN exactly as Aerial does; nothing is redistributed.
 
-## Status — Phase 2 (fullscreen player)
+## Status — Phase 3 (GNOME idle daemon)
 
 | Phase | Component | State |
 |-------|-----------|-------|
 | 0 | Recon (manifest schema, URLs, license) | ✅ done |
 | 1 | Catalog + cache layer | ✅ done |
-| 2 | **mpv fullscreen player (Wayland)** | ✅ this milestone |
-| 3 | GNOME idle daemon (`org.gnome.Mutter.IdleMonitor`) | ⬜ next |
-| 4 | Overlays (clock/weather via mpv Lua; MPRIS now-playing) | ⬜ |
-| 5 | Packaging (Flatpak / .deb, systemd --user unit) | ⬜ |
+| 2 | mpv fullscreen player (Wayland) | ✅ done |
+| 3 | **GNOME idle daemon (`org.gnome.Mutter.IdleMonitor`)** | ✅ this milestone |
+| 4 | Overlays (clock/weather via mpv Lua; MPRIS now-playing) | ⬜ next |
+| 5 | Packaging (Flatpak / .deb) | ⬜ |
 
-Validated on a GNOME/Wayland + NVIDIA box: clips stream/play fullscreen via
-the Vulkan pipeline (`--vo=gpu-next --gpu-api=vulkan --gpu-context=waylandvk`),
-hardware-decoded.
+Validated end-to-end on GNOME/Wayland + NVIDIA: the daemon starts playback on
+idle, stops on activity, re-fires each idle cycle, and shuts down cleanly —
+fullscreen, hardware-decoded via the Vulkan pipeline (`--vo=gpu-next
+--gpu-api=vulkan --gpu-context=waylandvk`).
 
 ## Building
 
@@ -50,7 +51,31 @@ aerial-linux cache <video-id> ... # pre-cache specific clips
 aerial-linux play                 # play cached clips fullscreen (Esc/q quits)
 aerial-linux play --stream        # ...including not-yet-cached clips (streamed)
 aerial-linux play --time night --count 5 --windowed
+aerial-linux daemon               # run as the idle screensaver (start on idle)
+aerial-linux daemon --timeout 60  # ...with a 60s idle timeout
 aerial-linux status               # show cache/config paths + catalog size
+```
+
+### Running as a screensaver (systemd --user)
+
+```sh
+install -Dm755 target/release/aerial-linux ~/.local/bin/aerial-linux
+install -Dm644 packaging/aerial-linux.service ~/.config/systemd/user/aerial-linux.service
+aerial-linux fetch                # populate the catalog
+aerial-linux cache --random 20    # optionally pre-cache clips (else it streams)
+systemctl --user enable --now aerial-linux.service
+journalctl --user -u aerial-linux -f   # watch it
+```
+
+The daemon watches Mutter's idle monitor: after `idle_timeout_secs` of
+inactivity it plays aerials fullscreen, and the first keypress/mouse movement
+stops them. Config lives in `~/.config/aerial-linux/config.toml`:
+
+```toml
+quality = "best"          # or "compatible"
+idle_timeout_secs = 300
+allow_stream = true       # play not-yet-cached clips by streaming
+match_time_of_day = false
 ```
 
 `play` drives the `mpv` binary (see `src/player.rs` for why a subprocess rather
@@ -78,6 +103,7 @@ src/
   catalog.rs    fetch tarball → extract entries.json → normalized Video catalog
   cache.rs      XDG cache: catalog.json + streamed, md5-verified video downloads
   player.rs     fullscreen playback by driving the mpv binary (Wayland/Vulkan)
+  daemon.rs     GNOME idle daemon (org.gnome.Mutter.IdleMonitor via zbus)
   selector.rs   time-of-day filtering + random pick
   config.rs     ~/.config/aerial-linux/config.toml (quality, time-of-day)
   main.rs       CLI

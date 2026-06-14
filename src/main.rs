@@ -8,6 +8,7 @@
 mod cache;
 mod catalog;
 mod config;
+mod daemon;
 mod manifest;
 mod player;
 mod selector;
@@ -96,6 +97,12 @@ enum Command {
         #[arg(long)]
         windowed: bool,
     },
+    /// Run as the GNOME idle screensaver daemon (start on idle, stop on activity).
+    Daemon {
+        /// Override the idle timeout (seconds) from config.
+        #[arg(long)]
+        timeout: Option<u64>,
+    },
     /// Print cache/config locations and catalog status.
     Status,
 }
@@ -116,6 +123,7 @@ async fn main() -> Result<()> {
             stream,
             windowed,
         } => cmd_play(time.as_deref(), count, stream, windowed),
+        Command::Daemon { timeout } => cmd_daemon(timeout).await,
         Command::Status => cmd_status(),
     }
 }
@@ -251,6 +259,27 @@ fn cmd_play(time: Option<&str>, count: usize, stream: bool, windowed: bool) -> R
     };
     player::play(&playlist, &opts)?;
     Ok(())
+}
+
+async fn cmd_daemon(timeout_override: Option<u64>) -> Result<()> {
+    let cache = Cache::open()?;
+    let catalog = cache.load_catalog()?;
+    let config = Config::load()?;
+    let pref = config.quality.preference();
+    let timeout = timeout_override.unwrap_or(config.idle_timeout_secs);
+
+    // Rebuilt on each idle period: re-reads time of day and picks up any clips
+    // cached since the daemon started.
+    let make_playlist = || {
+        let restrict = if config.match_time_of_day {
+            Some(selector::current_time_of_day())
+        } else {
+            None
+        };
+        player::build_playlist(&catalog, &cache, pref, restrict, 0, config.allow_stream)
+    };
+
+    daemon::run(timeout, make_playlist).await
 }
 
 fn cmd_status() -> Result<()> {

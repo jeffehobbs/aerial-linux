@@ -1,0 +1,21 @@
+[Unit]
+Description=aerial-linux — Apple TV aerial screensaver (GNOME idle daemon)
+Documentation=https://github.com/AerialScreensaver/Aerial
+# Tie the daemon's lifetime to the graphical session so it starts after login
+# and stops at logout. graphical-session.target carries the session env
+# (WAYLAND_DISPLAY, DBUS_SESSION_BUS_ADDRESS) the player and idle monitor need.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# WAYLAND_DISPLAY is not always exported into the systemd --user environment.
+# Import it (and DISPLAY, for Xwayland fallback) before starting; harmless if
+# already present.
+ExecStartPre=-/usr/bin/systemctl --user import-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP
+ExecStart=%h/.local/bin/aerial-linux daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

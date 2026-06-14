@@ -12,7 +12,7 @@ name = "aerial-linux"
 path = "src/main.rs"
 
 [dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "signal"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "stream"] }
 futures-util = "0.3"
 serde = { version = "1", features = ["derive"] }
@@ -26,6 +26,7 @@ flate2 = "1"
 md-5 = "0.10"
 hex = "0.4"
 indicatif = "0.17"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
 
 [profile.release]
 lto = true
