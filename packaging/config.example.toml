@@ -1,0 +1,33 @@
+# aerial-linux configuration.
+# Copy to ~/.config/aerial-linux/config.toml and edit. All fields are optional;
+# the values below are the defaults.
+
+# Video quality preference: "best" (4K SDR HEVC first) or "compatible"
+# (H.264 1080p first — widest hardware-decode support).
+quality = "best"
+
+# Seconds of inactivity before the screensaver starts.
+idle_timeout_secs = 300
+
+# Play clips that aren't cached yet by streaming them from Apple's CDN.
+# Set false to only play clips you've pre-cached with `aerial-linux cache`.
+allow_stream = true
+
+# Prefer clips matching the current time of day (day/night) when the manifest
+# tags them. Many current manifests omit the tag, in which case this is a no-op.
+match_time_of_day = false
+
+# --- Overlays ---------------------------------------------------------------
+
+# Clock (top-right).
+show_clock = true
+
+# "Now playing" (bottom-left), sourced from any playing MPRIS media player.
+show_now_playing = true
+
+# Weather (top-left). Shown only when api key + latitude + longitude are all
+# set. Get a free key at https://openweathermap.org/api
+# weather_api_key = "your-openweathermap-key"
+# weather_lat = 45.52
+# weather_lon = -122.68
+weather_units = "metric"   # "metric" (°C) | "imperial" (°F) | "standard" (K)

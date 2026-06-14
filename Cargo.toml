@@ -31,3 +31,30 @@ zbus = { version = "5", default-features = false, features = ["tokio"] }
 [profile.release]
 lto = true
 strip = true
+
+[package.metadata.deb]
+maintainer = "Jeff Hobbs <jhobbs@advancelocal.com>"
+copyright = "2026 Aerial contributors. MIT licensed."
+license-file = ["LICENSE", "0"]
+section = "x11"
+priority = "optional"
+# $auto pulls shared-library deps (libc, …) via dpkg-shlibdeps; mpv is the
+# runtime player we drive. mesa-vulkan-drivers gives the Wayland Vulkan path on
+# Intel/AMD (NVIDIA provides its own via the standard driver packages).
+depends = "$auto, mpv"
+recommends = "mesa-vulkan-drivers"
+extended-description = """\
+Plays Apple TV's aerial videos as a screensaver on GNOME/Wayland. A background \
+daemon watches the session idle time (org.gnome.Mutter.IdleMonitor) and, after \
+a configurable idle timeout, plays the aerials fullscreen — stopping the moment \
+you touch the keyboard or mouse. Optional clock, weather, and now-playing \
+overlays. Videos are streamed or cached from Apple's CDN.\
+"""
+assets = [
+    ["target/release/aerial-linux", "usr/bin/", "755"],
+    ["assets/overlay.lua", "usr/share/aerial-linux/overlay.lua", "644"],
+    ["packaging/aerial-linux.service", "usr/lib/systemd/user/aerial-linux.service", "644"],
+    ["packaging/80-aerial-linux.preset", "usr/lib/systemd/user-preset/80-aerial-linux.preset", "644"],
+    ["packaging/config.example.toml", "usr/share/doc/aerial-linux/config.example.toml", "644"],
+    ["README.md", "usr/share/doc/aerial-linux/README.md", "644"],
+]

@@ -14,7 +14,7 @@ manifest URLs, the `entries.json` schema, and the video-selection heuristics —
 lifted from the MIT-licensed upstream. Apple's video content itself is streamed
 from Apple's CDN exactly as Aerial does; nothing is redistributed.
 
-## Status — Phase 4 (overlays)
+## Status — Phase 5 (packaging)
 
 | Phase | Component | State |
 |-------|-----------|-------|
@@ -22,8 +22,8 @@ from Apple's CDN exactly as Aerial does; nothing is redistributed.
 | 1 | Catalog + cache layer | ✅ done |
 | 2 | mpv fullscreen player (Wayland) | ✅ done |
 | 3 | GNOME idle daemon (`org.gnome.Mutter.IdleMonitor`) | ✅ done |
-| 4 | **Overlays (clock + weather + MPRIS now-playing)** | ✅ this milestone |
-| 5 | Packaging (Flatpak / .deb) | ⬜ next |
+| 4 | Overlays (clock + weather + MPRIS now-playing) | ✅ done |
+| 5 | **Packaging (.deb + Flatpak)** | ✅ this milestone |
 
 Validated end-to-end on GNOME/Wayland + NVIDIA: aerials play fullscreen
 (Vulkan, hardware-decoded) on idle and stop on activity, with a clock, weather,
@@ -63,14 +63,46 @@ aerial-linux daemon --timeout 60  # ...with a 60s idle timeout
 aerial-linux status               # show cache/config paths + catalog size
 ```
 
-### Running as a screensaver (systemd --user)
+## Install
+
+### Ubuntu / Debian (.deb) — recommended
+
+```sh
+cargo install cargo-deb        # once
+cargo deb                      # → target/debian/aerial-linux_*.deb
+sudo apt install ./target/debian/aerial-linux_*_amd64.deb   # pulls in mpv
+```
+
+Installs the binary to `/usr/bin`, `overlay.lua` to `/usr/share/aerial-linux/`,
+and a systemd `--user` unit. Then, as your normal user:
+
+```sh
+aerial-linux fetch                          # populate the catalog
+aerial-linux cache --random 20              # optional: pre-cache (else streams)
+systemctl --user enable --now aerial-linux.service
+```
+
+### Flatpak
+
+See `packaging/flatpak/`:
+
+```sh
+flatpak-builder --user --install --force-clean build \
+  packaging/flatpak/io.github.aerialscreensaver.AerialLinux.yml
+flatpak run io.github.aerialscreensaver.AerialLinux fetch
+# screensaver service:
+cp packaging/flatpak/aerial-linux-flatpak.service ~/.config/systemd/user/
+systemctl --user enable --now aerial-linux-flatpak.service
+```
+
+### Running as a screensaver (manual, no package)
 
 ```sh
 install -Dm755 target/release/aerial-linux ~/.local/bin/aerial-linux
 install -Dm644 assets/overlay.lua ~/.local/share/aerial-linux/overlay.lua
-install -Dm644 packaging/aerial-linux.service ~/.config/systemd/user/aerial-linux.service
-aerial-linux fetch                # populate the catalog
-aerial-linux cache --random 20    # optionally pre-cache clips (else it streams)
+sed 's#/usr/bin/aerial-linux#%h/.local/bin/aerial-linux#' \
+  packaging/aerial-linux.service > ~/.config/systemd/user/aerial-linux.service
+aerial-linux fetch
 systemctl --user enable --now aerial-linux.service
 journalctl --user -u aerial-linux -f   # watch it
 ```

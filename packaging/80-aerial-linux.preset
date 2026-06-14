@@ -1,0 +1,4 @@
+# Enable the aerial-linux screensaver for users by default. Applied by
+# `systemctl --user preset-all` (and for new users). Existing users can also
+# enable it directly: `systemctl --user enable --now aerial-linux.service`.
+enable aerial-linux.service

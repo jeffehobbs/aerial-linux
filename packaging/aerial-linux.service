@@ -13,7 +13,7 @@ Type=simple
 # Import it (and DISPLAY, for Xwayland fallback) before starting; harmless if
 # already present.
 ExecStartPre=-/usr/bin/systemctl --user import-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP
-ExecStart=%h/.local/bin/aerial-linux daemon
+ExecStart=/usr/bin/aerial-linux daemon
 Restart=on-failure
 RestartSec=5
 
