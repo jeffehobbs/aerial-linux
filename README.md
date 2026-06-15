@@ -16,28 +16,13 @@ manifest URLs, the `entries.json` schema, and the video-selection heuristics —
 lifted from the MIT-licensed upstream. Apple's video content itself is streamed
 from Apple's CDN exactly as Aerial does; nothing is redistributed.
 
-## Status — Phase 5 (packaging)
-
-| Phase | Component | State |
-|-------|-----------|-------|
-| 0 | Recon (manifest schema, URLs, license) | ✅ done |
-| 1 | Catalog + cache layer | ✅ done |
-| 2 | mpv fullscreen player (Wayland) | ✅ done |
-| 3 | GNOME idle daemon (`org.gnome.Mutter.IdleMonitor`) | ✅ done |
-| 4 | Overlays (clock + weather + MPRIS now-playing) | ✅ done |
-| 5 | **Packaging (.deb + Flatpak)** | ✅ this milestone |
-
-Validated end-to-end on GNOME/Wayland + NVIDIA: aerials play fullscreen
-(Vulkan, hardware-decoded) on idle and stop on activity, with a clock, weather,
-and now-playing drawn over the video.
-
 ### Overlays
 
 A clock (top-right), weather (top-left), and "now playing" (bottom-left) are
 drawn over the video by an mpv Lua/ASS script (`assets/overlay.lua`). The clock
 is computed in Lua; weather (Open-Meteo, no key) and now-playing (MPRIS over D-Bus) are
 fetched by the Rust side and written to a JSON state file the script reads. All
-are individually toggleable; weather requires an API key + location in config.
+are individually toggleable; weather requires a location in config.
 
 ## Building
 
